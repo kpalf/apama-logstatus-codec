@@ -1,0 +1,41 @@
+connectivityPlugins:
+  logStatusCodec:
+    libraryName: LogStatusCodec
+    class: LogStatusCodec
+  mapperCodec:
+    libraryName: MapperCodec
+    class: MapperCodec
+  diagnosticCodec:
+    libraryName: DiagnosticCodec
+    class: DiagnosticCodec
+  unitTestHarness:
+    classpath: ${APAMA_HOME}/lib/connectivity-unit-test-harness.jar
+    class: com.softwareag.connectivity.testplugins.UnitTestHarness
+  nullTransport:
+    classpath: ${APAMA_HOME}/lib/connectivity-unit-test-harness.jar
+    class: com.softwareag.connectivity.testplugins.NullTransport
+
+
+startChains:
+  statusChain:
+    - apama.eventMap:
+       defaultEventType: Data
+    - mapperCodec:
+       '*':
+         towardsHost:
+            mapFrom:
+              - payload.data: payload
+         towardsTransport:
+            mapFrom:
+              - payload: payload.data
+    - diagnosticCodec:
+        output: file
+        fileName: csv-before.txt
+    - logStatusCodec
+    - diagnosticCodec:
+        output: file
+        fileName: csv-after.txt
+    - unitTestHarness:
+        pluginUnderTest: towardsHost
+        readFrom: ${PARENT_DIR}/input.txt
+    - nullTransport
