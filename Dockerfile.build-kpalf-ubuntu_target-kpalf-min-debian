@@ -1,0 +1,39 @@
+# Build & test this Connectivity Plugin in one interim Docker image, then package in a smaller one
+ARG APAMA_VERSION=10.3.0.1
+ARG APAMA_BUILDER=kpalf/apamacore:${APAMA_VERSION}_ubuntu_amd64
+
+# Use unofficial community contributed ACCE on Ubuntu as the image we add the g++ compiler to and do the compile/test cycle within
+FROM ${APAMA_BUILDER} as builder
+
+# install g++ 8 and python 3 (this part takes a while first time)
+USER root
+RUN apt-get update && apt-get install -y g++-8 python3
+USER sagadmin:sagadmin
+
+# copy in the contents of this Github project from the Docker build context
+COPY . $APAMA_WORK/apama-logstatus-codec
+
+# Build
+RUN mkdir -p $APAMA_WORK/lib 
+RUN g++-8 -std=c++11 --shared -fPIC -o $APAMA_WORK/lib/libLogStatusCodec.so $APAMA_WORK/apama-logstatus-codec/LogStatusCodec.cpp -I$APAMA_HOME/include -lapclient -L$APAMA_HOME/lib
+
+# Test - needs a JVM for the connectivity-unit-test-harness.jar
+USER root
+RUN apt-get install -y openjdk-8-jre
+ENV PATH=$PATH:/usr/lib/jvm/java-8-openjdk-amd64/jre/bin/
+ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/lib/jvm/java-8-openjdk-amd64/jre/lib/amd64/server:/usr/lib/jvm/java-8-openjdk-amd64/jre/lib/amd64
+
+# Also has to run as root for the tee to work apparently
+RUN cd ${APAMA_WORK}/apama-logstatus-codec/tests && pysys run | tee logfile && grep 'THERE WERE NO NON PASSES' logfile
+
+
+####################################
+# Now make our final resulting image
+ARG APAMA_VERSION
+FROM kpalf/apamacore-min:${APAMA_VERSION}_experimental-debian-slim_amd64
+
+ARG APAMA_WORK
+COPY --from=builder ${APAMA_WORK}/lib ${APAMA_WORK}/lib
+
+WORKDIR ${APAMA_WORK}
+CMD ["correlator"]

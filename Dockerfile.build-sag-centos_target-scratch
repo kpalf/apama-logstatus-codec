@@ -1,0 +1,36 @@
+# Build this Connectivity Plugin
+#
+# *NOTE* This will result in a TINY docker image that only contains the built binaries on a SCRATCH base 
+# that could be used in other multi-stage builds
+
+ARG APAMA_VERSION=10.3
+ARG APAMA_BUILDER=store/softwareag/apama-builder:${APAMA_VERSION}
+
+# Use the official Apama Builder image from the SoftwareAG area of Docker Store.  
+# (You must have "checked-out"/"subscribed" at https://store.docker.com/images/softwareag-apama-builder
+# and be logged in to the Docker daemon with the same user ID.)
+# But we'll need to add the g++ compiler to it
+FROM ${APAMA_BUILDER} as builder
+
+
+COPY . $APAMA_WORK/apama-logstatus-codec
+RUN mkdir -p $APAMA_WORK/lib 
+
+# all these next parts need to run as root
+USER root
+
+# install g++ 8 and python 3 (this part takes a while first time)
+#RUN apt-get update && apt-get install -y g++-8 
+RUN yum -y install centos-release-scl
+RUN yum -y install devtoolset-7-gcc-c++
+
+RUN source scl_source enable devtoolset-7 && \
+ g++ -std=c++11 --shared -fPIC -o $APAMA_WORK/lib/libLogStatusCodec.so $APAMA_WORK/apama-logstatus-codec/LogStatusCodec.cpp -I$APAMA_HOME/include -lapclient -L$APAMA_HOME/lib
+
+RUN cd ${APAMA_WORK}/apama-logstatus-codec/tests && pysys run | tee logfile && grep 'THERE WERE NO NON PASSES' logfile
+
+####################################
+# Now make our final resulting image
+FROM scratch
+
+COPY --from=builder ${APAMA_WORK}/lib ${APAMA_WORK}/lib
