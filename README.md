@@ -11,7 +11,7 @@ This works with Apama 10.3.0.1 or later
 In an Apama command prompt on Linux run:
 
     mkdir -p $APAMA_WORK/lib 
-    g++ -std=c++11 --shared -o $APAMA_WORK\lib\libLogStatusCodec.so ..\LogStatusCodec.cpp -I$APAMA_HOME/include -lapclient -L$APAMA_HOME/lib
+    g++ -std=c++11 --shared -fPIC -o $APAMA_WORK/lib/libLogStatusCodec.so ../LogStatusCodec.cpp -I$APAMA_HOME/include -lapclient -L$APAMA_HOME/lib
 
 On Windows run:
 
