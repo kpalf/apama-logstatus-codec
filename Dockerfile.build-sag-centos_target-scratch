@@ -12,25 +12,26 @@ ARG APAMA_BUILDER=store/softwareag/apama-builder:${APAMA_VERSION}
 # But we'll need to add the g++ compiler to it
 FROM ${APAMA_BUILDER} as builder
 
-
-COPY . $APAMA_WORK/apama-logstatus-codec
-RUN mkdir -p $APAMA_WORK/lib 
-
-# all these next parts need to run as root
-USER root
-
 # install g++ 8 and python 3 (this part takes a while first time)
-#RUN apt-get update && apt-get install -y g++-8 
+USER root
 RUN yum -y install centos-release-scl
 RUN yum -y install devtoolset-7-gcc-c++
+USER sagadmin:sagadmin
 
+# Copy in the assets from the build context (with correct ownership)
+COPY --chown=sagadmin:sagadmin . $APAMA_WORK/apama-logstatus-codec
+RUN mkdir -p $APAMA_WORK/lib 
+
+# Build
 RUN source scl_source enable devtoolset-7 && \
  g++ -std=c++11 --shared -fPIC -o $APAMA_WORK/lib/libLogStatusCodec.so $APAMA_WORK/apama-logstatus-codec/LogStatusCodec.cpp -I$APAMA_HOME/include -lapclient -L$APAMA_HOME/lib
 
+# Test
 RUN cd ${APAMA_WORK}/apama-logstatus-codec/tests && pysys run | tee logfile && grep 'THERE WERE NO NON PASSES' logfile
 
 ####################################
 # Now make our final resulting image
 FROM scratch
 
+# Copy from the interim image.  Don't need chown as it is a scratch image
 COPY --from=builder /apama_work/lib /apama_work/lib
