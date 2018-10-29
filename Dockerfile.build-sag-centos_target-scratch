@@ -33,4 +33,4 @@ RUN cd ${APAMA_WORK}/apama-logstatus-codec/tests && pysys run | tee logfile && g
 # Now make our final resulting image
 FROM scratch
 
-COPY --from=builder ${APAMA_WORK}/lib ${APAMA_WORK}/lib
+COPY --from=builder /apama_work/lib /apama_work/lib
